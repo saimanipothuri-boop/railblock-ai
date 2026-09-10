@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RailBlock-AI | Automatic Block Planning for Indian Railways</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+</head>
+<body>
+  <!-- TOP BAR -->
+  <header class="topbar">
+    <div class="brand-section">
+      <div class="ir-emblem">
+        <svg viewBox="0 0 100 100" class="ir-logo" width="38" height="38">
+          <circle cx="50" cy="50" r="46" fill="#8B0000" stroke="#FFD700" stroke-width="4"/>
+          <circle cx="50" cy="50" r="32" fill="none" stroke="#FFFFFF" stroke-dasharray="4,4" stroke-width="2"/>
+          <path d="M 30 70 L 50 25 L 70 70 Z" fill="#FFD700"/>
+          <circle cx="50" cy="50" r="10" fill="#8B0000"/>
+          <circle cx="50" cy="50" r="4" fill="#FFD700"/>
+        </svg>
+      </div>
+      <div>
+        <div class="brand-title">भारतीय रेल • INDIAN RAILWAYS</div>
+        <div class="brand-subtitle">RailBlock-AI : Automatic Block Planning & Asset Availability Maximizer</div>
+      </div>
+    </div>
+
+    <div class="topbar-right">
+      <div class="badge corridor-badge">
+        <span class="indicator live-pulse"></span>
+        Corridor: <strong>HDN-1 (NDLS ↔ CNB 440 KM)</strong>
+      </div>
+      <div class="badge time-badge">
+        <span>IST:</span> <strong id="liveClock">00:00:00</strong>
+      </div>
+      <button class="btn btn-outline" id="btnReset" title="Reset dataset to defaults">
+        ↺ Reset Simulation
+      </button>
+      <button class="btn btn-primary" id="btnOpenNewBlockModal">
+        + Request Track Block
+      </button>
+    </div>
+  </header>
+
+  <!-- KPI METRICS BAR -->
+  <section class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-label">Asset Availability</div>
+      <div class="kpi-value" id="kpiAvailability">95.8%</div>
+      <div class="kpi-footer text-success">↑ +2.6% vs Manual Planning</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Network Punctuality</div>
+      <div class="kpi-value" id="kpiPunctuality">87.9%</div>
+      <div class="kpi-footer text-accent">100% Vande Bharat Protected</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Train Detention Saved</div>
+      <div class="kpi-value" id="kpiSavedHours">10.9 <span class="unit">Hrs</span></div>
+      <div class="kpi-footer text-success"><span id="kpiSavedMin">652</span> min cumulative delay saved</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Shadow Blocks Discovered</div>
+      <div class="kpi-value" id="kpiShadowBlocks">3 <span class="unit">/ 5</span></div>
+      <div class="kpi-footer text-info">Zero Train Stoppage Slots</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Critical Safety Fulfillment</div>
+      <div class="kpi-value text-gold" id="kpiCriticalFulfillment">100%</div>
+      <div class="kpi-footer text-warning">USFD Rail Flaw Block Granted</div>
+    </div>
+  </section>
+
+  <!-- NAVIGATION TABS -->
+  <nav class="nav-tabs">
+    <button class="tab-btn active" data-tab="tab-schematic">
+      <span class="tab-icon">🛤️</span> Live Track Schematic
+    </button>
+    <button class="tab-btn" data-tab="tab-marey">
+      <span class="tab-icon">📈</span> Time-Distance (Marey) Chart
+    </button>
+    <button class="tab-btn" data-tab="tab-optimizer">
+      <span class="tab-icon">🧠</span> AI Block Optimizer
+    </button>
+    <button class="tab-btn" data-tab="tab-simulator">
+      <span class="tab-icon">⚡</span> "What-If" Delay Simulator
+    </button>
+    <button class="tab-btn" data-tab="tab-assets">
+      <span class="tab-icon">🔬</span> Asset Health Telemetry
+    </button>
+    <button class="tab-btn" data-tab="tab-memos">
+      <span class="tab-icon">📋</span> Block Sanction Memos
+    </button>
+  </nav>
+
+  <!-- MAIN VIEWPORT -->
+  <main class="main-content">
+    
+    <!-- TAB 1: LIVE TRACK SCHEMATIC -->
+    <div class="tab-pane active" id="tab-schematic">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <h3>Section Controller Interactive Track Schematic</h3>
+            <p class="panel-desc">Real-time UP & DOWN track occupancy, loop lines, signal aspects, and active maintenance blocks across 440 km corridor.</p>
+          </div>
+          <div class="schematic-legend">
+            <span class="legend-item"><span class="legend-box line-clear"></span> Track Clear</span>
+            <span class="legend-item"><span class="legend-box line-occupied"></span> Train Occupied</span>
+            <span class="legend-item"><span class="legend-box line-blocked"></span> Maintenance Block</span>
+            <span class="legend-item"><span class="legend-dot sig-green"></span> Green</span>
+            <span class="legend-item"><span class="legend-dot sig-yellow"></span> Caution</span>
+            <span class="legend-item"><span class="legend-dot sig-red"></span> Red (Held)</span>
+          </div>
+        </div>
+
+        <div class="schematic-timeline-control">
+          <label><strong>Simulated Corridor Time:</strong> <span id="schematicTimeDisplay" class="text-accent">10:30 (630 min)</span></label>
+          <input type="range" id="schematicTimeSlider" min="360" max="1200" value="630" step="5">
+          <div class="sim-speed-controls">
+            <button class="btn btn-xs" id="btnPlaySim">▶ Play Simulation</button>
+            <button class="btn btn-xs" id="btnPauseSim">⏸ Pause</button>
+          </div>
+        </div>
+
+        <!-- SVG TRACK SCHEMATIC -->
+        <div class="track-schematic-wrapper">
+          <svg id="schematicSvg" viewBox="0 0 1200 480" width="100%" height="480">
+            <!-- Dynamic SVG elements rendered by app.js -->
+          </svg>
+        </div>
+
+        <!-- ACTIVE TRACK DETAILS -->
+        <div class="schematic-details-grid">
+          <div class="detail-box">
+            <h4>Active Corridor Trains at Current Time</h4>
+            <div id="schematicTrainList" class="train-pill-list">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+          <div class="detail-box">
+            <h4>Active / Scheduled Blocks at Current Time</h4>
+            <div id="schematicBlockList" class="block-pill-list">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: TIME-DISTANCE (MAREY) CHART -->
+    <div class="tab-pane" id="tab-marey">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <h3>Indian Railways Time-Distance String Diagram (Marey Chart)</h3>
+            <p class="panel-desc">Visualizes train trajectories along the 440 km corridor vs. time (06:00 to 22:00). Shaded bands represent Maintenance Blocks.</p>
+          </div>
+          <div class="chart-controls">
+            <label><input type="checkbox" id="chkShowBlocks" checked> Show Maintenance Blocks</label>
+            <label><input type="checkbox" id="chkShowDownTrains" checked> DOWN Trains (Delhi → Kanpur)</label>
+            <label><input type="checkbox" id="chkShowUpTrains" checked> UP Trains (Kanpur → Delhi)</label>
+          </div>
+        </div>
+
+        <div class="marey-container">
+          <svg id="mareyChartSvg" viewBox="0 0 1100 580" width="100%" height="580">
+            <!-- Rendered by JS -->
+          </svg>
+        </div>
+
+        <div class="marey-legend">
+          <span class="legend-item"><span class="line-swatch" style="background:#2563EB;"></span> Vande Bharat (Priority 10)</span>
+          <span class="legend-item"><span class="line-swatch" style="background:#DC2626;"></span> Rajdhani Express (Priority 9)</span>
+          <span class="legend-item"><span class="line-swatch" style="background:#059669;"></span> Shatabdi / Superfast (Priority 7-8)</span>
+          <span class="legend-item"><span class="line-swatch" style="background:#D97706;"></span> Freight / Goods (Priority 2-3)</span>
+          <span class="legend-item"><span class="block-swatch"></span> Granted Maintenance Block Window</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: AI BLOCK OPTIMIZER -->
+    <div class="tab-pane" id="tab-optimizer">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <h3>AI Multi-Objective Constraint Solver & Shadow Block Engine</h3>
+            <p class="panel-desc">Resolves train-track maintenance conflicts by finding natural headway gaps or regulating lower-priority freight on loop lines.</p>
+          </div>
+          <div class="solver-actions">
+            <select id="selOptimizerMode" class="form-select">
+              <option value="balanced" selected>Mode: Balanced (Min Delay + High Maintenance)</option>
+              <option value="zero_delay">Mode: Zero Passenger Delay (Strict Shadow Slots)</option>
+              <option value="urgent_safety">Mode: Urgent Asset Safety (Prioritize Track Renewal)</option>
+            </select>
+            <button class="btn btn-primary" id="btnRunOptimizer">
+              ⚡ Execute AI Optimization
+            </button>
+          </div>
+        </div>
+
+        <!-- COMPARISON GRID -->
+        <div class="optimizer-results-grid">
+          <div class="card">
+            <h4>Blocks Optimization & Conflict Resolution Matrix</h4>
+            <div class="table-responsive">
+              <table class="data-table" id="tableBlocks">
+                <thead>
+                  <tr>
+                    <th>Block ID</th>
+                    <th>Dept & Work</th>
+                    <th>Section / Track</th>
+                    <th>Requested Window</th>
+                    <th>AI Granted Window</th>
+                    <th>Status</th>
+                    <th>Type</th>
+                    <th>Delay Impact</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="tbodyBlocks">
+                  <!-- Rendered via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- AI REASONING LOG -->
+          <div class="card ai-reasoning-card">
+            <h4>AI Algorithmic Rationale & Audit Trail</h4>
+            <div class="reasoning-feed" id="aiReasoningFeed">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4: WHAT-IF DELAY SIMULATOR -->
+    <div class="tab-pane" id="tab-simulator">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <h3>Dynamic Delay Injection & Real-Time Re-Scheduling Engine</h3>
+            <p class="panel-desc">Simulate unplanned real-world train delays. Observe how the AI dynamically shifts downstream maintenance windows to prevent network gridlock.</p>
+          </div>
+        </div>
+
+        <div class="simulator-grid">
+          <div class="card sim-card">
+            <h4>Inject Train Delay</h4>
+            <div class="form-group">
+              <label for="selSimTrain">Select Train on Corridor:</label>
+              <select id="selSimTrain" class="form-select">
+                <!-- Populated via JS -->
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="rangeSimDelay">Delay to Inject: <strong id="simDelayValue" class="text-warning">+30 mins</strong></label>
+              <input type="range" id="rangeSimDelay" min="0" max="120" value="30" step="5">
+            </div>
+            <div class="sim-presets">
+              <button class="btn btn-sm btn-outline preset-btn" data-delay="15">+15m Signal Delay</button>
+              <button class="btn btn-sm btn-outline preset-btn" data-delay="35">+35m Loco Trouble</button>
+              <button class="btn btn-sm btn-outline preset-btn" data-delay="60">+60m Fog / Caution</button>
+              <button class="btn btn-sm btn-outline preset-btn" data-delay="0">0m Clear Delay</button>
+            </div>
+            <button class="btn btn-warning btn-block" id="btnInjectDelay">
+              🚨 Inject Delay & Trigger Dynamic AI Re-Planning
+            </button>
+          </div>
+
+          <div class="card">
+            <h4>Real-Time AI Dynamic Re-Scheduler Log</h4>
+            <div class="live-event-feed" id="delaySimLog">
+              <div class="log-item info">
+                <span class="log-time">08:00</span>
+                <span class="log-text">Dynamic re-scheduler standing by. No upstream disruption active.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 5: ASSET HEALTH TELEMETRY -->
+    <div class="tab-pane" id="tab-assets">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <h3>Corridor Asset Health & Predictive Maintenance Telemetry</h3>
+            <p class="panel-desc">Integration of Track Quality Index (TQI), Ultrasonic Flaw Detection (USFD) rail welds, OHE contact wire thickness, and Point Machines.</p>
+          </div>
+          <button class="btn btn-outline" id="btnAutoRequestFromAssets">
+            ⚡ Generate AI Block Requests from High Urgency Assets
+          </button>
+        </div>
+
+        <div class="assets-grid" id="assetsContainer">
+          <!-- Rendered via JS -->
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 6: BLOCK SANCTION MEMOS -->
+    <div class="tab-pane" id="tab-memos">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <h3>Indian Railways Official Block Sanction Memo Dispatcher</h3>
+            <p class="panel-desc">Joint digital authorization between Section Controller (DOM), Engineering P-Way, and Station Masters.</p>
+          </div>
+          <button class="btn btn-outline" onclick="window.print()">🖨️ Print Memo</button>
+        </div>
+
+        <div class="memo-container" id="memoViewer">
+          <div class="ir-memo-paper">
+            <div class="memo-header">
+              <div class="memo-title">उत्तर मध्य रेलवे • NORTH CENTRAL RAILWAY</div>
+              <div class="memo-sub">PRAYAGRAJ DIVISION • CONTROL OFFICE APPLICATION (COA)</div>
+              <div class="memo-doc-title">JOINT TRAFFIC / POWER BLOCK SANCTION MEMO</div>
+            </div>
+
+            <div class="memo-meta-grid" id="memoMetaGrid">
+              <!-- Rendered via JS -->
+            </div>
+
+            <div class="memo-body" id="memoBody">
+              <!-- Rendered via JS -->
+            </div>
+
+            <div class="memo-signatures">
+              <div class="sig-block">
+                <div class="sig-line"></div>
+                <div class="sig-title">Section Controller (Operations)</div>
+                <div class="sig-sub">Sr. Divisional Operations Manager</div>
+              </div>
+              <div class="sig-block">
+                <div class="sig-line"></div>
+                <div class="sig-title">Senior Section Engineer (P-Way/TRD)</div>
+                <div class="sig-sub">Engineering Maintenance Head</div>
+              </div>
+              <div class="sig-block">
+                <div class="sig-line"></div>
+                <div class="sig-title">Station Master (Block Section)</div>
+                <div class="sig-sub">Digital Token Sanction</div>
+              </div>
+            </div>
+
+            <div class="memo-footer">
+              <div id="memoSecurityHash">Digital Seal: SHA256-IR-AI-AUTOMATED-BLOCK-SANCTION-SYSTEM</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- MODAL: REQUEST NEW MAINTENANCE BLOCK -->
+  <div class="modal-backdrop" id="newBlockModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Submit New Track Maintenance Block Request</h3>
+        <button class="modal-close" id="btnCloseModal">&times;</button>
+      </div>
+      <form id="newBlockForm">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Department:</label>
+            <select name="department" class="form-select" required>
+              <option value="Civil Engineering (P-Way)">Civil Engineering (P-Way Track)</option>
+              <option value="Electrical (TRD / OHE)">Electrical (TRD / OHE Power)</option>
+              <option value="Signaling & Telecom (S&T)">Signaling & Telecom (S&T)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Section:</label>
+            <select name="section_id" class="form-select" required>
+              <option value="DN-NDLS-GZB">DN-NDLS-GZB (Delhi - Ghaziabad)</option>
+              <option value="DN-GZB-ALJN">DN-GZB-ALJN (Ghaziabad - Aligarh)</option>
+              <option value="DN-ALJN-TDL" selected>DN-ALJN-TDL (Aligarh - Tundla)</option>
+              <option value="DN-TDL-ETW">DN-TDL-ETW (Tundla - Etawah)</option>
+              <option value="DN-ETW-CNB">DN-ETW-CNB (Etawah - Kanpur)</option>
+              <option value="UP-ALJN-GZB">UP-ALJN-GZB (Aligarh - Ghaziabad)</option>
+              <option value="UP-TDL-ALJN">UP-TDL-ALJN (Tundla - Aligarh)</option>
+              <option value="UP-CNB-ETW">UP-CNB-ETW (Kanpur - Etawah)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Direction:</label>
+            <select name="direction" class="form-select">
+              <option value="DOWN">DOWN Line (Towards Kanpur)</option>
+              <option value="UP">UP Line (Towards Delhi)</option>
+              <option value="BOTH">BOTH Tracks</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Machine / Equipment Required:</label>
+            <input type="text" name="machine_required" class="form-input" value="Duomatic Track Tamper" required>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>From KM:</label>
+            <input type="number" name="from_km" class="form-input" value="165.0" step="0.1" required>
+          </div>
+          <div class="form-group">
+            <label>To KM:</label>
+            <input type="number" name="to_km" class="form-input" value="175.0" step="0.1" required>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Preferred Start Time (Minutes from 00:00):</label>
+            <input type="number" name="requested_start_min" class="form-input" value="660" min="300" max="1300" required>
+            <small class="text-muted">660 min = 11:00 AM</small>
+          </div>
+          <div class="form-group">
+            <label>Duration Required (Minutes):</label>
+            <input type="number" name="requested_duration_min" class="form-input" value="120" min="30" max="300" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Urgency Score (1 to 100):</label>
+          <input type="range" name="urgency_score" min="1" max="100" value="75" oninput="this.nextElementSibling.value = this.value">
+          <output class="text-accent">75</output>
+        </div>
+
+        <div class="form-group">
+          <label>Work Description:</label>
+          <textarea name="work_description" class="form-textarea" rows="2" required>Post-monsoon track packing, lifting and cross-level alignment correction.</textarea>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" id="btnCancelModal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Submit to AI Optimizer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

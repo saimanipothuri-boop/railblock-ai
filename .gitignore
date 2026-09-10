@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+*.zip
+*.lnk
+.DS_Store
+.vscode/
+.idea/
+
