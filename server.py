@@ -223,9 +223,10 @@ class RailwayRequestHandler(http.server.SimpleHTTPRequestHandler):
 
 def run_server():
     os.makedirs(PUBLIC_DIR, exist_ok=True)
-    with socketserver.TCPServer(("", PORT), RailwayRequestHandler) as httpd:
+    with http.server.ThreadingHTTPServer(("", PORT), RailwayRequestHandler) as httpd:
         print(f"RailBlock AI Server running at http://localhost:{PORT}")
         httpd.serve_forever()
+
 
 
 if __name__ == "__main__":
